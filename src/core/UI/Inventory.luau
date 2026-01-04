@@ -1,5 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
+local _Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 if RunService:IsServer() then
@@ -7,7 +7,6 @@ if RunService:IsServer() then
 end
 
 local React = require(ReplicatedStorage.Packages.React)
-local ReactRoblox = require(ReplicatedStorage.Packages.ReactRoblox)
 
 local SwordManager = require(ReplicatedStorage.Core.AssetManager.Swords.SwordManager)
 local AbilityManager = require(ReplicatedStorage.Core.AssetManager.Abilities.AbilityManager)
@@ -28,8 +27,6 @@ local RARITY_RANK = {
 	Epic = 4,
 	Legendary = 5,
 }
-
-local ITEM_BG_IMAGE = "rbxthumb://type=Asset&id=107503485424120&w=420&h=420"
 
 local Inventory = {}
 
@@ -119,29 +116,25 @@ local function InventoryUI(props)
 			end
 		end
 
-		-- Sorting Logic
 		table.sort(filtered, function(a, b)
 			local aEquipped = equippedItems[a.Name] or false
 			local bEquipped = equippedItems[b.Name] or false
 
-			-- Priority 1: Equipped
 			if aEquipped ~= bEquipped then
-				return aEquipped -- true comes first
+				return aEquipped
 			end
 
-			-- Priority 2: Rarity
 			local rankA = RARITY_RANK[a.Rarity] or 1
 			local rankB = RARITY_RANK[b.Rarity] or 1
 			if rankA ~= rankB then
-				return rankA > rankB -- Highest rarity first
+				return rankA > rankB
 			end
 
-			-- Priority 3: Name
 			return a.Name < b.Name
 		end)
 
 		return filtered
-	end, { inventory, currentTab, equippedItems }) -- Added equippedItems to dependency array
+	end, { inventory, currentTab, equippedItems })
 
 	if not visible then
 		return nil
@@ -170,271 +163,347 @@ local function InventoryUI(props)
 		return id
 	end
 
-	return React.createElement("ScreenGui", {
-		Name = "InventoryGUI",
-		ResetOnSpawn = false,
-	}, {
-		MainFrame = React.createElement("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(0.8, 0.8),
-			BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-			BackgroundTransparency = 0.1,
+	local function TabButton(tabProps)
+		local isHovered, setIsHovered = React.useState(false)
+		local isSelected = currentTab == tabProps.Name
+
+		return React.createElement("TextButton", {
+			Size = UDim2.fromOffset(150, 40),
+			BackgroundColor3 = isSelected and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(30, 30, 30),
+			BackgroundTransparency = isSelected and 0 or 0.3,
+			Text = string.upper(tabProps.Name),
+			Font = Enum.Font.GothamBold,
+			TextSize = 16,
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			AutoButtonColor = false,
+			[React.Event.MouseEnter] = function()
+				setIsHovered(true)
+			end,
+			[React.Event.MouseLeave] = function()
+				setIsHovered(false)
+			end,
+			[React.Event.Activated] = tabProps.OnClick,
 		}, {
-			React.createElement("UICorner", { CornerRadius = UDim.new(0, 12) }),
-			React.createElement("UIStroke", {
-				Color = Color3.fromRGB(255, 255, 255),
+			Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 4) }),
+			Stroke = React.createElement("UIStroke", {
 				Thickness = 2,
+				Color = isSelected and Color3.new(1, 1, 1) or Color3.new(0.4, 0.4, 0.4),
+				Transparency = (isSelected or isHovered) and 0 or 0.5,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			}),
+		})
+	end
+
+	local function ItemCard(cardProps)
+		local isHovered, setIsHovered = React.useState(false)
+		local isSelected = selectedItem and selectedItem.Name == cardProps.Item.Name
+		local isEquipped = equippedItems[cardProps.Item.Name]
+		local rarityColor = RARITY_COLORS[cardProps.Item.Rarity] or RARITY_COLORS.Common
+
+		return React.createElement("ImageButton", {
+			Size = UDim2.fromOffset(120, 120),
+			BackgroundColor3 = isSelected and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(20, 20, 20),
+			BackgroundTransparency = 0.2,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			[React.Event.MouseEnter] = function()
+				setIsHovered(true)
+			end,
+			[React.Event.MouseLeave] = function()
+				setIsHovered(false)
+			end,
+			[React.Event.Activated] = function()
+				setSelectedItem(cardProps.Item)
+			end,
+		}, {
+			Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
+
+			Gradient = React.createElement("UIGradient", {
+				Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+					ColorSequenceKeypoint.new(1, Color3.new(0.7, 0.7, 0.7)),
+				}),
+				Rotation = 90,
 			}),
 
-			CloseButton = React.createElement("TextButton", {
-				AnchorPoint = Vector2.new(1, 0),
-				Position = UDim2.new(1, -10, 0, 10),
-				Size = UDim2.fromOffset(30, 30),
-				Text = "X",
-				BackgroundColor3 = Color3.fromRGB(200, 50, 50),
-				TextColor3 = Color3.new(1, 1, 1),
+			Stroke = React.createElement("UIStroke", {
+				Thickness = isSelected and 3 or 2,
+				Color = rarityColor,
+				Transparency = (isSelected or isHovered) and 0 or 0.3,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			}),
+
+			Icon = React.createElement("ImageLabel", {
+				Size = UDim2.fromScale(0.7, 0.7),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.45),
+				BackgroundTransparency = 1,
+				Image = getAssetUrl(cardProps.Item.ImageId),
+			}),
+
+			NameLabel = React.createElement("TextLabel", {
+				Size = UDim2.new(1, 0, 0, 25),
+				Position = UDim2.fromScale(0, 1),
+				AnchorPoint = Vector2.new(0, 1),
+				BackgroundTransparency = 0.4,
+				BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+				Text = cardProps.Item.Name,
 				Font = Enum.Font.GothamBold,
-				TextSize = 18,
-				ZIndex = 10,
-				[React.Event.MouseButton1Click] = function()
-					if onClose then
-						onClose()
-					end
-				end,
+				TextSize = 12,
+				TextColor3 = Color3.new(1, 1, 1),
+				ZIndex = 2,
 			}, {
-				React.createElement("UICorner", { CornerRadius = UDim.new(0, 6) }),
+				Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 4) }),
 			}),
 
-			Tabs = React.createElement("Frame", {
-				Size = UDim2.new(1, -40, 0, 50),
-				Position = UDim2.fromOffset(20, 10),
-				BackgroundTransparency = 1,
+			EquippedTag = isEquipped and React.createElement("Frame", {
+				Size = UDim2.fromOffset(20, 20),
+				Position = UDim2.new(1, -5, 0, 5),
+				AnchorPoint = Vector2.new(1, 0),
+				BackgroundColor3 = Color3.fromRGB(46, 204, 113),
+				ZIndex = 3,
 			}, {
-				Layout = React.createElement("UIListLayout", {
-					FillDirection = Enum.FillDirection.Horizontal,
-					Padding = UDim.new(0, 5),
-				}),
-
-				SwordsTab = React.createElement("TextButton", {
-					Size = UDim2.fromOffset(100, 40),
-					Text = "Swords",
-					BackgroundColor3 = currentTab == "Swords" and Color3.fromRGB(30, 30, 30)
-						or Color3.fromRGB(15, 15, 15),
-					TextColor3 = Color3.new(1, 1, 1),
-					Font = Enum.Font.GothamBold,
-					TextSize = 16,
-					[React.Event.MouseButton1Click] = function()
-						setCurrentTab("Swords")
-						setSelectedItem(nil)
-					end,
-				}, {
-					React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
-					currentTab == "Swords" and React.createElement("UIStroke", {
-						Color = Color3.new(1, 1, 1),
-						Thickness = 2,
-						ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-					}),
-				}),
-
-				AbilitiesTab = React.createElement("TextButton", {
-					Size = UDim2.fromOffset(100, 40),
-					Text = "Abilities",
-					BackgroundColor3 = currentTab == "Abilities" and Color3.fromRGB(30, 30, 30)
-						or Color3.fromRGB(15, 15, 15),
-					TextColor3 = Color3.new(1, 1, 1),
-					Font = Enum.Font.GothamBold,
-					TextSize = 16,
-					[React.Event.MouseButton1Click] = function()
-						setCurrentTab("Abilities")
-						setSelectedItem(nil)
-					end,
-				}, {
-					React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
-					currentTab == "Abilities" and React.createElement("UIStroke", {
-						Color = Color3.new(1, 1, 1),
-						Thickness = 2,
-						ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-					}),
-				}),
-
-				GoalsTab = React.createElement("TextButton", {
-					Size = UDim2.fromOffset(100, 40),
-					Text = "Goals",
-					BackgroundColor3 = currentTab == "Goals" and Color3.fromRGB(30, 30, 30)
-						or Color3.fromRGB(15, 15, 15),
-					TextColor3 = Color3.new(1, 1, 1),
-					Font = Enum.Font.GothamBold,
-					TextSize = 16,
-					[React.Event.MouseButton1Click] = function()
-						setCurrentTab("Goals")
-						setSelectedItem(nil)
-					end,
-				}, {
-					React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
-					currentTab == "Goals" and React.createElement("UIStroke", {
-						Color = Color3.new(1, 1, 1),
-						Thickness = 2,
-						ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-					}),
-				}),
-			}),
-
-			-- content area
-			Content = React.createElement("Frame", {
-				Position = UDim2.fromOffset(20, 70),
-				Size = UDim2.new(1, -40, 1, -90),
-				BackgroundTransparency = 1,
-			}, {
-				Layout = React.createElement("UIListLayout", {
-					FillDirection = Enum.FillDirection.Horizontal,
-					Padding = UDim.new(0, 20),
-				}),
-
-				-- LEFT PANEL: items grid
-				LeftPanel = React.createElement("ScrollingFrame", {
-					Size = UDim2.new(0.6, 0, 1, 0),
+				Corner = React.createElement("UICorner", { CornerRadius = UDim.new(1, 0) }),
+				Check = React.createElement("TextLabel", {
+					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					ScrollBarThickness = 6,
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(0, 0, 0, 0),
+					Text = "\226\156\147",
+					TextColor3 = Color3.new(1, 1, 1),
+					TextSize = 14,
+					Font = Enum.Font.GothamBlack,
+				}),
+			}),
+		})
+	end
+
+	return React.createElement("ScreenGui", {
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+	}, {
+		Container = React.createElement("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Active = false,
+		}, {
+			Overlay = React.createElement("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+				BackgroundTransparency = 0.4,
+			}),
+
+			BackButton = React.createElement("TextButton", {
+				Size = UDim2.fromOffset(120, 50),
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -30, 0, 30),
+				BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+				Text = "BACK \226\134\146",
+				Font = Enum.Font.GothamBold,
+				TextSize = 20,
+				TextColor3 = Color3.fromRGB(255, 255, 255),
+				AutoButtonColor = true,
+				[React.Event.Activated] = onClose,
+			}, {
+				Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
+			}),
+
+			Header = React.createElement("TextLabel", {
+				Text = "INVENTORY",
+				Font = Enum.Font.GothamBlack,
+				TextSize = 80,
+				TextColor3 = Color3.fromRGB(255, 255, 255),
+				TextTransparency = 0.9,
+				Size = UDim2.new(1, -100, 0, 120),
+				Position = UDim2.fromOffset(50, 20),
+				BackgroundTransparency = 1,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			}),
+
+			Content = React.createElement("Frame", {
+				Size = UDim2.fromScale(0.85, 0.7),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				BackgroundTransparency = 1,
+			}, {
+				TabsContainer = React.createElement("Frame", {
+					Size = UDim2.new(1, 0, 0, 50),
+					BackgroundTransparency = 1,
 				}, {
-					Padding = React.createElement("UIPadding", {
-						PaddingTop = UDim.new(0, 10),
-						PaddingBottom = UDim.new(0, 10),
-						PaddingLeft = UDim.new(0, 10),
-						PaddingRight = UDim.new(0, 10),
-					}),
-					GridLayout = React.createElement("UIGridLayout", {
-						CellSize = UDim2.fromOffset(100, 100),
-						CellPadding = UDim2.fromOffset(15, 15),
+					Layout = React.createElement("UIListLayout", {
+						FillDirection = Enum.FillDirection.Horizontal,
+						Padding = UDim.new(0, 15),
+						HorizontalAlignment = Enum.HorizontalAlignment.Right,
 					}),
 
-					React.createElement(
-						React.Fragment,
-						nil,
-						(function()
-							local elements = {}
-							for i, item in ipairs(filteredItems) do
-								local isEquipped = equippedItems[item.Name]
-								local isSelected = selectedItem and selectedItem.Name == item.Name
-								local rarityColor = RARITY_COLORS[item.Rarity] or RARITY_COLORS.Common
-
-								elements[item.Name .. i] = React.createElement("ImageButton", {
-									Name = item.Name,
-									BackgroundColor3 = isSelected and Color3.fromRGB(80, 80, 80)
-										or Color3.fromRGB(20, 20, 20),
-									Image = ITEM_BG_IMAGE,
-									[React.Event.MouseButton1Click] = function()
-										setSelectedItem(item)
-									end,
-								}, {
-									React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
-									React.createElement("UIStroke", {
-										Color = rarityColor, -- Use Rarity Color
-										Thickness = isEquipped and 3 or 1,
-									}),
-
-									-- Item Icon sorted higher in ZIndex than button image
-									Icon = React.createElement("ImageLabel", {
-										Size = UDim2.fromScale(0.8, 0.8), -- Made slightly smaller to fit nicely in center
-										AnchorPoint = Vector2.new(0.5, 0.5),
-										Position = UDim2.fromScale(0.5, 0.5),
-										BackgroundTransparency = 1,
-										Image = getAssetUrl(item.ImageId),
-										ZIndex = 2,
-									}),
-
-									NameLabel = React.createElement("TextLabel", {
-										Size = UDim2.new(1, 0, 0, 20),
-										Position = UDim2.fromScale(0, 1),
-										AnchorPoint = Vector2.new(0, 1),
-										BackgroundTransparency = 0.5,
-										BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-										Text = item.Name,
-										TextColor3 = Color3.new(1, 1, 1),
-										TextSize = 12,
-										Font = Enum.Font.Gotham,
-										ZIndex = 3,
-									}, { React.createElement("UICorner", { CornerRadius = UDim.new(0, 4) }) }),
-
-									EquippedTag = isEquipped and React.createElement("ImageLabel", {
-										Size = UDim2.fromOffset(20, 20),
-										Position = UDim2.fromScale(1, 0),
-										AnchorPoint = Vector2.new(1, 0),
-										BackgroundTransparency = 1,
-										Image = "rbxassetid://13778235213",
-										ImageColor3 = Color3.fromRGB(100, 255, 100),
-										ZIndex = 4,
-									}),
-								})
-							end
-							return elements
-						end)()
-					),
+					SwordsTab = React.createElement(TabButton, {
+						Name = "Swords",
+						OnClick = function()
+							setCurrentTab("Swords")
+							setSelectedItem(nil)
+						end,
+					}),
+					AbilitiesTab = React.createElement(TabButton, {
+						Name = "Abilities",
+						OnClick = function()
+							setCurrentTab("Abilities")
+							setSelectedItem(nil)
+						end,
+					}),
+					GoalsTab = React.createElement(TabButton, {
+						Name = "Goals",
+						OnClick = function()
+							setCurrentTab("Goals")
+							setSelectedItem(nil)
+						end,
+					}),
 				}),
 
-				-- RIGHT PANEL: item details
-				RightPanel = React.createElement("Frame", {
-					Size = UDim2.new(0.4, -20, 1, 0),
-					BackgroundColor3 = Color3.fromRGB(20, 20, 20),
-					BackgroundTransparency = 0.5,
+				HorizontalSplit = React.createElement("Frame", {
+					Size = UDim2.new(1, 0, 1, -70),
+					Position = UDim2.fromOffset(0, 70),
+					BackgroundTransparency = 1,
 				}, {
-					React.createElement("UICorner", { CornerRadius = UDim.new(0, 12) }),
+					Layout = React.createElement("UIListLayout", {
+						FillDirection = Enum.FillDirection.Horizontal,
+						Padding = UDim.new(0, 30),
+					}),
 
-					Content = selectedItem and React.createElement(React.Fragment, nil, {
-						Title = React.createElement("TextLabel", {
-							Size = UDim2.new(1, -20, 0, 40),
-							Position = UDim2.fromOffset(10, 10),
+					ItemsSection = React.createElement("Frame", {
+						Size = UDim2.new(0.65, -15, 1, 0),
+						BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+						BackgroundTransparency = 0.4,
+					}, {
+						Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 12) }),
+						Stroke = React.createElement(
+							"UIStroke",
+							{ Thickness = 1, Color = Color3.new(1, 1, 1), Transparency = 0.9 }
+						),
+
+						ItemsList = React.createElement("ScrollingFrame", {
+							Size = UDim2.fromScale(1, 1),
 							BackgroundTransparency = 1,
-							Text = selectedItem.Name,
-							TextColor3 = Color3.new(1, 1, 1),
+							ScrollBarThickness = 4,
+							CanvasSize = UDim2.fromScale(0, 0),
+							AutomaticCanvasSize = Enum.AutomaticSize.Y,
+							ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100),
+						}, {
+							GridLayout = React.createElement("UIGridLayout", {
+								CellSize = UDim2.fromOffset(120, 120),
+								CellPadding = UDim2.fromOffset(20, 20),
+							}),
+							Padding = React.createElement("UIPadding", {
+								PaddingLeft = UDim.new(0, 20),
+								PaddingTop = UDim.new(0, 20),
+								PaddingRight = UDim.new(0, 20),
+								PaddingBottom = UDim.new(0, 20),
+							}),
+
+							Items = React.createElement(
+								React.Fragment,
+								nil,
+								(function()
+									local items = {}
+									for i, item in ipairs(filteredItems) do
+										items["Item_" .. i] = React.createElement(ItemCard, { Item = item })
+									end
+									return items
+								end)()
+							),
+						}),
+					}),
+
+					DetailsPanel = React.createElement("Frame", {
+						Size = UDim2.new(0.35, -15, 1, 0),
+						BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+						BackgroundTransparency = 0.2,
+					}, {
+						Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 12) }),
+						Stroke = React.createElement(
+							"UIStroke",
+							{ Thickness = 2, Color = Color3.new(1, 1, 1), Transparency = 0.8 }
+						),
+
+						Inner = selectedItem and React.createElement(React.Fragment, nil, {
+							Padding = React.createElement("UIPadding", {
+								PaddingTop = UDim.new(0, 20),
+								PaddingBottom = UDim.new(0, 20),
+								PaddingLeft = UDim.new(0, 20),
+								PaddingRight = UDim.new(0, 20),
+							}),
+
+							Title = React.createElement("TextLabel", {
+								Size = UDim2.new(1, 0, 0, 30),
+								BackgroundTransparency = 1,
+								Text = selectedItem.Name,
+								Font = Enum.Font.GothamBlack,
+								TextSize = 24,
+								TextColor3 = Color3.new(1, 1, 1),
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+
+							Rarity = React.createElement("TextLabel", {
+								Size = UDim2.new(1, 0, 0, 20),
+								Position = UDim2.fromOffset(0, 35),
+								BackgroundTransparency = 1,
+								Text = string.upper(selectedItem.Rarity or "Common"),
+								Font = Enum.Font.GothamBold,
+								TextSize = 14,
+								TextColor3 = RARITY_COLORS[selectedItem.Rarity] or Color3.new(1, 1, 1),
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+
+							Preview = React.createElement("ImageLabel", {
+								Size = UDim2.fromScale(0.8, 0.4),
+								Position = UDim2.fromScale(0.5, 0.45),
+								AnchorPoint = Vector2.new(0.5, 0.5),
+								BackgroundTransparency = 1,
+								Image = getAssetUrl(selectedItem.ImageId),
+								ScaleType = Enum.ScaleType.Fit,
+							}),
+
+							Desc = React.createElement("TextLabel", {
+								Size = UDim2.new(1, 0, 0, 60),
+								Position = UDim2.fromScale(0, 0.7),
+								BackgroundTransparency = 1,
+								Text = selectedItem.Desc or "No description.",
+								Font = Enum.Font.Gotham,
+								TextSize = 14,
+								TextColor3 = Color3.fromRGB(200, 200, 200),
+								TextWrapped = true,
+								TextXAlignment = Enum.TextXAlignment.Left,
+								TextYAlignment = Enum.TextYAlignment.Top,
+							}),
+
+							EquipButton = React.createElement("TextButton", {
+								Size = UDim2.new(1, 0, 0, 50),
+								AnchorPoint = Vector2.new(0.5, 1),
+								Position = UDim2.fromScale(0.5, 1),
+								BackgroundColor3 = equippedItems[selectedItem.Name] and Color3.fromRGB(100, 100, 100)
+									or Color3.fromRGB(46, 204, 113),
+								Text = equippedItems[selectedItem.Name] and "EQUIPPED" or "EQUIP",
+								Font = Enum.Font.GothamBlack,
+								TextSize = 20,
+								TextColor3 = Color3.new(1, 1, 1),
+								[React.Event.Activated] = onEquip,
+							}, {
+								Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
+								Gradient = not equippedItems[selectedItem.Name]
+										and React.createElement("UIGradient", {
+											Color = ColorSequence.new({
+												ColorSequenceKeypoint.new(0, Color3.fromRGB(46, 204, 113)),
+												ColorSequenceKeypoint.new(1, Color3.fromRGB(39, 174, 96)),
+											}),
+											Rotation = 90,
+										})
+									or nil,
+							}),
+						}) or React.createElement("TextLabel", {
+							Size = UDim2.fromScale(1, 1),
+							BackgroundTransparency = 1,
+							Text = "SELECT AN ITEM",
 							Font = Enum.Font.GothamBold,
-							TextSize = 24,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							TextSize = 18,
+							TextColor3 = Color3.fromRGB(150, 150, 150),
 						}),
-
-						ImagePreview = React.createElement("ImageLabel", {
-							Size = UDim2.fromOffset(150, 150),
-							Position = UDim2.new(0.5, 0, 0, 60),
-							AnchorPoint = Vector2.new(0.5, 0),
-							BackgroundTransparency = 1,
-							Image = getAssetUrl(selectedItem.ImageId),
-						}),
-
-						Desc = React.createElement("TextLabel", {
-							Size = UDim2.new(1, -20, 0, 100),
-							Position = UDim2.new(0.5, 0, 0, 220),
-							AnchorPoint = Vector2.new(0.5, 0),
-							BackgroundTransparency = 1,
-							Text = selectedItem.Desc or "No description.",
-							TextColor3 = Color3.fromRGB(200, 200, 200),
-							Font = Enum.Font.Gotham,
-							TextSize = 14,
-							TextWrapped = true,
-							TextXAlignment = Enum.TextXAlignment.Left,
-							TextYAlignment = Enum.TextYAlignment.Top,
-						}),
-
-						EquipButton = React.createElement("TextButton", {
-							Size = UDim2.new(1, -40, 0, 50),
-							Position = UDim2.new(0.5, 0, 1, -20),
-							AnchorPoint = Vector2.new(0.5, 1),
-							BackgroundColor3 = equippedItems[selectedItem.Name] and Color3.fromRGB(100, 100, 100)
-								or Color3.fromRGB(50, 200, 50),
-							Text = equippedItems[selectedItem.Name] and "Equipped" or "Equip",
-							TextColor3 = Color3.new(1, 1, 1),
-							Font = Enum.Font.GothamBold,
-							TextSize = 20,
-							[React.Event.MouseButton1Click] = onEquip,
-						}, { React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }) }),
-					}) or React.createElement("TextLabel", {
-						Size = UDim2.fromScale(1, 1),
-						BackgroundTransparency = 1,
-						Text = "Select an item to view details",
-						TextColor3 = Color3.fromRGB(150, 150, 150),
-						Font = Enum.Font.Gotham,
-						TextSize = 18,
 					}),
 				}),
 			}),

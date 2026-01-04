@@ -24,7 +24,7 @@ BallConfig.Physics = {
 }
 
 BallConfig.Parry = {
-	RANGE = 14,
+	RANGE = 15,
 	COOLDOWN = 0.1,
 	TIMEOUT = 5,
 	MIN_PARRY_TIME = 0.05,

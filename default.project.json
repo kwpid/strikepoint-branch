@@ -4,7 +4,18 @@
     "$className": "DataModel",
     "ReplicatedStorage": {
       "Core": {
-        "$path": "src/core"
+        "$path": "src/core",
+        "AssetManager": {
+          "$path": "src/core/AssetManager",
+          "Swords": {
+            "$path": "src/core/AssetManager/Swords",
+            "$ignoreUnknownInstances": true
+          },
+          "Goals": {
+            "$path": "src/core/AssetManager/Goals",
+            "$ignoreUnknownInstances": true
+          }
+        }
       },
       "Game": {
         "$path": "src/game/shared"

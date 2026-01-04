@@ -5,9 +5,6 @@ local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
 
 local Config = require(ReplicatedStorage.Game.BallConfig)
 local RemoteEventsFolder = ReplicatedStorage:WaitForChild(Config.Paths.REMOTE_EVENTS_FOLDER)
@@ -15,12 +12,21 @@ local AbilityManager = require(ReplicatedStorage.Core.AssetManager.Abilities.Abi
 local doubleJumpEvent = RemoteEventsFolder:WaitForChild("DoubleJumpEvent")
 local jumpEffectTemplate = ReplicatedStorage:WaitForChild("JumpEffect")
 
+local character = nil
+local humanoid = nil
+local rootPart = nil
+local attrConn = nil
+local stateConn = nil
+
 local jumpCount = 0
 local maxJumps = 2
 local lastJumpTime = 0
 local TIME_BETWEEN_JUMPS = 0.2
 
 local function updateAbilities()
+	if not character then
+		return
+	end
 	local abilityName = character:GetAttribute("EquippedAbility")
 	if abilityName then
 		local ability = AbilityManager.GetAbility(abilityName)
@@ -32,24 +38,25 @@ local function updateAbilities()
 	else
 		maxJumps = 2
 	end
+	-- print("JumpClient: efficient jumps set to", maxJumps)
 end
 
-character:GetAttributeChangedSignal("EquippedAbility"):Connect(updateAbilities)
-updateAbilities()
-
 local function playDoubleJumpEffect(targetCFrame)
+	if not jumpEffectTemplate then
+		return
+	end
 	local effectPart = jumpEffectTemplate:Clone()
 	effectPart.CFrame = targetCFrame * CFrame.new(0, -2.5, 0) * CFrame.Angles(0, 0, math.rad(90))
 	effectPart.Transparency = 1
 	effectPart.Parent = workspace
 
 	-- fade in
-	local fadeInInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local fadeInInfo = TweenInfo.new(0.2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
 	local fadeInGoal = { Transparency = 0.5 }
 	local fadeInTween = TweenService:Create(effectPart, fadeInInfo, fadeInGoal)
 
 	-- fade out
-	local fadeOutInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local fadeOutInfo = TweenInfo.new(0.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
 	local fadeOutGoal = { Transparency = 1 }
 	local fadeOutTween = TweenService:Create(effectPart, fadeOutInfo, fadeOutGoal)
 
@@ -61,17 +68,40 @@ local function playDoubleJumpEffect(targetCFrame)
 	Debris:AddItem(effectPart, 1)
 end
 
-humanoid.StateChanged:Connect(function(oldState, newState)
-	if newState == Enum.HumanoidStateType.Landed or newState == Enum.HumanoidStateType.Running then
-		hasDoubleJumped = false
-		jumpCount = 0
-	elseif newState == Enum.HumanoidStateType.Jumping then
-		lastJumpTime = tick()
-		jumpCount = jumpCount + 1
+local function setupCharacter(newChar)
+	character = newChar
+	humanoid = character:WaitForChild("Humanoid")
+	rootPart = character:WaitForChild("HumanoidRootPart")
+
+	if attrConn then
+		attrConn:Disconnect()
 	end
-end)
+	if stateConn then
+		stateConn:Disconnect()
+	end
+
+	attrConn = character:GetAttributeChangedSignal("EquippedAbility"):Connect(updateAbilities)
+	updateAbilities()
+
+	stateConn = humanoid.StateChanged:Connect(function(_, newState)
+		if newState == Enum.HumanoidStateType.Landed or newState == Enum.HumanoidStateType.Running then
+			jumpCount = 0
+		elseif newState == Enum.HumanoidStateType.Jumping then
+			lastJumpTime = tick()
+			jumpCount = jumpCount + 1
+		end
+	end)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+if player.Character then
+	setupCharacter(player.Character)
+end
 
 local function attemptDoubleJump()
+	if not character or not humanoid or not rootPart then
+		return
+	end
 	if character:GetAttribute("FeaturesLocked") then
 		return
 	end

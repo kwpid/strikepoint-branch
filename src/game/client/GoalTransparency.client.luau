@@ -2,8 +2,16 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
-local character = script.Parent
 local camera = workspace.CurrentCamera
+local character = nil
+
+local function onCharAdded(newChar)
+	character = newChar
+end
+player.CharacterAdded:Connect(onCharAdded)
+if player.Character then
+	character = player.Character
+end
 
 local FADED_TRANSPARENCY = 0.8
 local fadingParts = {}
@@ -48,13 +56,13 @@ local function checkGoals(folder)
 			for _, goal in ipairs(goals:GetChildren()) do
 				for _, part in ipairs(goal:GetDescendants()) do
 					if part:IsA("BasePart") then
-						part.Transparency = .8
+						part.Transparency = 1
 					end
 				end
 
 				goal.DescendantAdded:Connect(function(part)
 					if part:IsA("BasePart") then
-						part.Transparency = .8
+						part.Transparency = 1
 					end
 				end)
 			end
@@ -72,12 +80,12 @@ if GamesFolder then
 			for _, goal in ipairs(goals:GetChildren()) do
 				for _, part in ipairs(goal:GetDescendants()) do
 					if part:IsA("BasePart") then
-						part.Transparency = .8
+						part.Transparency = 1
 					end
 				end
 				goal.DescendantAdded:Connect(function(part)
 					if part:IsA("BasePart") then
-						part.Transparency = .8
+						part.Transparency = 1
 					end
 				end)
 			end
@@ -95,7 +103,7 @@ else
 					for _, goal in ipairs(goals:GetChildren()) do
 						for _, part in ipairs(goal:GetDescendants()) do
 							if part:IsA("BasePart") then
-								part.Transparency = .8
+								part.Transparency = 1
 							end
 						end
 					end

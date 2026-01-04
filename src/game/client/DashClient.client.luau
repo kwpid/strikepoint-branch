@@ -137,7 +137,14 @@ local function performDash()
 			local direction = (predictedPos - startCFrame.Position).Unit
 			local targetDest = startCFrame.Position + direction * (Config.Dash.POWER * Config.Dash.DURATION)
 
-			if alpha >= 1 then
+			local currentPos = rootPart.Position:Lerp(targetDest, alpha)
+
+			local distToBall = (ball.Position - rootPart.Position).Magnitude
+			if distToBall < 4 then
+				isDashing = false
+			end
+
+			if not isDashing or alpha >= 1 then
 				connection:Disconnect()
 				rootPart.Anchored = false
 				humanoid.AutoRotate = originalAutoRotate
@@ -153,7 +160,6 @@ local function performDash()
 				return
 			end
 
-			local currentPos = startCFrame.Position:Lerp(targetDest, alpha)
 			rootPart.CFrame = CFrame.new(currentPos, predictedPos)
 		end)
 
@@ -250,16 +256,27 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 	end
 end)
 
-character:SetAttribute("DashTrigger", false)
-character:GetAttributeChangedSignal("DashTrigger"):Connect(function()
-	if character:GetAttribute("DashTrigger") == true then
-		performDash()
-		character:SetAttribute("DashTrigger", false)
-	end
-end)
+local attrConn = nil
 
-player.CharacterAdded:Connect(function(newChar)
+local function setupCharacter(newChar)
 	character = newChar
 	rootPart = character:WaitForChild("HumanoidRootPart")
 	humanoid = character:WaitForChild("Humanoid")
-end)
+
+	if attrConn then
+		attrConn:Disconnect()
+	end
+
+	character:SetAttribute("DashTrigger", false)
+	attrConn = character:GetAttributeChangedSignal("DashTrigger"):Connect(function()
+		if character:GetAttribute("DashTrigger") == true then
+			performDash()
+			character:SetAttribute("DashTrigger", false)
+		end
+	end)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+if player.Character then
+	setupCharacter(player.Character)
+end

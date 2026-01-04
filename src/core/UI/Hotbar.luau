@@ -9,7 +9,7 @@ if RunService:IsServer() then
 end
 
 local React = require(ReplicatedStorage.Packages.React)
-local ReactRoblox = require(ReplicatedStorage.Packages.ReactRoblox)
+-- local ReactRoblox = require(ReplicatedStorage.Packages.ReactRoblox)
 
 local Config = require(ReplicatedStorage.Game.BallConfig)
 local AbilityManager = require(ReplicatedStorage.Core.AssetManager.Abilities.AbilityManager)
@@ -156,7 +156,7 @@ local function HotbarUI(props)
 	end, { dashCooldown })
 
 	local function onParry()
-		local player = Players.LocalPlayer
+		-- local player = Players.LocalPlayer
 		local camera = workspace.CurrentCamera
 		local direction = camera.CFrame.LookVector
 		local RemoteEventsFolder = ReplicatedStorage:WaitForChild(Config.Paths.REMOTE_EVENTS_FOLDER)
@@ -196,14 +196,21 @@ local function HotbarUI(props)
 	return React.createElement("ScreenGui", {
 		Name = "Hotbar",
 		ResetOnSpawn = false,
+		DisplayOrder = 1, -- Stay below NavBar
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	}, {
 		Container = React.createElement("Frame", {
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.fromScale(0.5, 0.95),
-			Size = UDim2.fromScale(0.3, 0.1), -- Responsive Width/Height
+			Size = UDim2.fromScale(0.3, 0.1), -- Responsive
 			BackgroundTransparency = 1,
+			Active = false,
 		}, {
+			SizeConstraint = React.createElement("UISizeConstraint", {
+				MaxSize = Vector2.new(600, 100),
+				MinSize = Vector2.new(200, 40),
+			}),
+
 			Layout = React.createElement("UIListLayout", {
 				FillDirection = Enum.FillDirection.Horizontal,
 				HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -227,7 +234,7 @@ local function HotbarUI(props)
 					"freeplay"
 				) ~= nil),
 				[React.Event.Activated] = function()
-					local RemoteEventsFolder = ReplicatedStorage:FindFirstChild("Ball_Events")
+					local RemoteEventsFolder = ReplicatedStorage:FindFirstChild(Config.Paths.REMOTE_EVENTS_FOLDER)
 					local leaveEvent = RemoteEventsFolder and RemoteEventsFolder:FindFirstChild("LeaveFreeplayEvent")
 					if leaveEvent then
 						leaveEvent:FireServer()
