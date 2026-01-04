@@ -2,27 +2,35 @@
   "name": "strikepoint-branch",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
-      "Shared": {
-        "$path": "src/shared"
+      "Core": {
+        "$path": "src/core"
+      },
+      "Game": {
+        "$path": "src/game/shared"
+      },
+      "Packages": {
+        "$path": "Packages"
       }
     },
-
     "ServerScriptService": {
-      "Server": {
-        "$path": "src/server"
+      "Game": {
+        "$path": "src/game/server"
+      },
+      "Startup": {
+        "$path": "src/startup/server"
       }
     },
-
     "StarterPlayer": {
       "StarterPlayerScripts": {
-        "Client": {
-          "$path": "src/client"
+        "Game": {
+          "$path": "src/game/client"
         }
       }
     },
-
+    "StarterGui": {
+      "$path": "src/startup/ui"
+    },
     "Workspace": {
       "$properties": {
         "FilteringEnabled": true
